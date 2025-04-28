@@ -1,0 +1,80 @@
+---
+- name: Configure Samba and Bind
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install task-samba-dc
+      apt:
+        name: task-samba-dc
+        update_cache: yes
+
+    - name: Install bind packages
+      apt:
+        name:
+          - bind
+          - bind-utils
+        state: present
+
+    - name: Stop and disable services
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - bind
+        - krb5kdc
+        - nmb
+        - smb
+        - slapd
+
+    - name: Clean Samba configuration
+      file:
+        path: "{{ item.path }}"
+        state: "{{ item.state }}"
+      loop:
+        - { path: '/etc/samba/smb.conf', state: 'absent' }
+        - { path: '/var/lib/samba', state: 'absent' }
+        - { path: '/var/cache/samba', state: 'absent' }
+        - { path: '/var/lib/samba/sysvol', state: 'directory', mode: '0755' }
+
+    - name: Disable bind chroot
+      command: control bind-chroot disabled
+      args:
+        warn: false
+
+    - name: Configure KRB5RCACHETYPE
+      lineinfile:
+        path: /etc/sysconfig/bind
+        regexp: '^KRB5RCACHETYPE='
+        line: 'KRB5RCACHETYPE="none"'
+        state: present
+
+    - name: Add bind-dns include
+      lineinfile:
+        path: /etc/bind/named.conf
+        line: 'include "/var/lib/samba/bind-dns/named.conf";'
+        regexp: 'include ".*bind-dns/named.conf"'
+        state: present
+
+    - name: Configure options section
+      blockinfile:
+        path: /etc/bind/options.conf
+        marker: "# {mark} ANSIBLE MANAGED OPTIONS"
+        block: |
+          tkey-gssapi-keytab "/var/lib/samba/bind-dns/dns.keytab";
+          minimal-responses yes;
+        insertafter: '^options {'
+
+    - name: Configure logging section
+      blockinfile:
+        path: /etc/bind/options.conf
+        marker: "# {mark} ANSIBLE MANAGED LOGGING"
+        block: |
+          category lame-servers {null;};
+        insertafter: '^logging {'
+
+    - name: Update network parameters
+      replace:
+        path: /etc/bind/options.conf
+        regexp: '^(\\s*)(allow-query|allow-recursion|listen-on)(\\s+.*;)'
+        replace: '\1\2 { any; };'
