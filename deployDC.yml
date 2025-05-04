@@ -119,31 +119,38 @@
   hosts: samba-dc2
   become: yes
   tasks:
-    - name: Backup resolv.conf
-      copy:
-        remote_src: yes
-        src: /etc/resolv.conf
-        dest: /etc/resolv.conf.bak
-        force: yes
-
-    - name: Configure resolv.conf with DC1 DNS
-      copy:
-        content: |
-          nameserver {% for host in groups['samba-dc1'] %}{{ hostvars[host].ansible_default_ipv4.address }}{% endfor %}
-        dest: /etc/resolv.conf
-        force: yes
-
     - name: Configure Kerberos settings
-      blockinfile:
-        path: /etc/krb5.conf
-        marker: "# {mark} ANSIBLE MANAGED KRB5 CONFIG"
-        block: |
-          [libdefaults]
-            default_realm = AU-TEAM.IRPO
-            dns_lookup_realm = false
-            dns_lookup_kdc = true
-        insertafter: '^\[libdefaults\]'
-        mode: 0644
+      block:
+        - name: Ensure [libdefaults] section exists
+          lineinfile:
+            path: /etc/krb5.conf
+            line: '[libdefaults]'
+            regexp: '^\[libdefaults\]'
+            state: present
+
+        - name: Set default_realm
+          lineinfile:
+            path: /etc/krb5.conf
+            regexp: '^\s*default_realm\s*='
+            line: '    default_realm = AU-TEAM.IRPO'
+            insertafter: '^\[libdefaults\]'
+            state: present
+
+        - name: Set dns_lookup_realm
+          lineinfile:
+            path: /etc/krb5.conf
+            regexp: '^\s*dns_lookup_realm\s*='
+            line: '    dns_lookup_realm = false'
+            insertafter: '^\[libdefaults\]'
+            state: present
+
+        - name: Set dns_lookup_kdc
+          lineinfile:
+            path: /etc/krb5.conf
+            regexp: '^\s*dns_lookup_kdc\s*='
+            line: '    dns_lookup_kdc = true'
+            insertafter: '^\[libdefaults\]'
+            state: present
 
     - name: Obtain Kerberos ticket
       command: kinit administrator@AU-TEAM.IRPO
@@ -163,13 +170,6 @@
           server services = -dns
         insertafter: '^\[global\]'
         before: '^\[[^\]]+\]'
-
-    - name: Restore original resolv.conf
-      copy:
-        src: /etc/resolv.conf.bak
-        dest: /etc/resolv.conf
-        remote_src: yes
-        force: yes
 
     - name: Start and enable Samba
       service:
