@@ -87,13 +87,13 @@
         creates: /etc/samba/smb.conf  # Защита от повторного выполнения
 
     - name: Disable DNS in samba config
-      lineinfile:
+      blockinfile:
         path: /etc/samba/smb.conf
+        marker: "# {mark} ANSIBLE MANAGED SERVER SERVICES"
+        block: |
+          server services = -dns
         insertafter: '^\[global\]'
-        line: '    server services = -dns'
-        regexp: '^\s*server services\s*=\s*-dns'
-        state: present
-        backrefs: yes
+        before: '^\[[^\]]+\]'
 
     - name: Start and enable Samba
       service:
