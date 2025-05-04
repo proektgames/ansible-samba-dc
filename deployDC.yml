@@ -86,6 +86,14 @@
       args:
         creates: /etc/samba/smb.conf  # Защита от повторного выполнения
 
+    - name: Disable DNS in samba config
+      ini_file:
+        path: /etc/samba/smb.conf
+        section: global
+        option: server services
+        value: '-dns'
+        mode: 0644
+
     - name: Start and enable Samba
       service:
         name: samba
@@ -106,9 +114,3 @@
       command: samba-tool dns add 127.0.0.1 au-team.irpo samba-dc2 A {% for host in groups['samba-dc2'] %}
                 {{ hostvars[host].ansible_default_ipv4.address }}
                {% endfor %} -U administrator%P@ssw0rd 
-
-        #- name: Add samba-dc2 to domain
-        #hosts: samba-dc2
-        #become: yes
-        #tasks:
-        #- name: 
