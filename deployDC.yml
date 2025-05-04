@@ -114,3 +114,71 @@
       command: samba-tool dns add 127.0.0.1 au-team.irpo samba-dc2 A {% for host in groups['samba-dc2'] %}
                 {{ hostvars[host].ansible_default_ipv4.address }}
                {% endfor %} -U administrator%P@ssw0rd 
+
+- name: Add samba-dc2 to domain as dc
+  hosts: samba-dc2
+  become: yes
+  tasks:
+
+    - name: Backup resolv.conf
+      copy:
+        remote_src: yes
+        src: /etc/resolv.conf
+        dest: /etc/resolv.conf.bak
+
+    - name: Configure resolv.conf with DC1 DNS
+      copy:
+        content: |
+          nameserver {% for host in groups['samba-dc1'] %}{{ hostvars[host].ansible_default_ipv4.address }}{% endfor %}
+        dest: /etc/resolv.conf
+        backup: yes
+
+    - name: Configure Kerberos settings
+      blockinfile:
+        path: /etc/krb5.conf
+        marker: "# {mark} ANSIBLE MANAGED KRB5 CONFIG"
+        block: |
+          [libdefaults]
+            default_realm = AU-TEAM.IRPO
+            dns_lookup_realm = false
+            dns_lookup_kdc = true
+        insertafter: '^\[libdefaults\]'
+        mode: 0644
+
+    - name: Obtain Kerberos ticket
+      command: kinit administrator@AU-TEAM.IRPO
+      args:
+        stdin: "P@ssw0rd\n"
+      no_log: true
+      changed_when: false
+
+    - name: Join domain
+      command: samba-tool domain join au-team.irpo DC -Uadministrator%P@ssw0rd --realm=au-team.irpo --dns-backend=BIND9_DLZ
+
+    - name: Disable DNS in samba config
+      blockinfile:
+        path: /etc/samba/smb.conf
+        marker: "# {mark} ANSIBLE MANAGED SERVER SERVICES"
+        block: |
+          server services = -dns
+        insertafter: '^\[global\]'
+        before: '^\[[^\]]+\]'
+
+    - name: Restore original resolv.conf
+      copy:
+        src: /etc/resolv.conf.bak
+        dest: /etc/resolv.conf
+        remote_src: yes
+        force: yes
+
+    - name: Start and enable Samba
+      service:
+        name: samba
+        state: started
+        enabled: yes
+
+    - name: Start and enable Bind9
+      service:
+        name: bind
+        state: started
+        enabled: yes
