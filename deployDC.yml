@@ -119,19 +119,19 @@
   hosts: samba-dc2
   become: yes
   tasks:
-
     - name: Backup resolv.conf
       copy:
         remote_src: yes
         src: /etc/resolv.conf
         dest: /etc/resolv.conf.bak
+        force: yes
 
     - name: Configure resolv.conf with DC1 DNS
       copy:
         content: |
           nameserver {% for host in groups['samba-dc1'] %}{{ hostvars[host].ansible_default_ipv4.address }}{% endfor %}
         dest: /etc/resolv.conf
-        backup: yes
+        force: yes
 
     - name: Configure Kerberos settings
       blockinfile:
@@ -149,7 +149,7 @@
       command: kinit administrator@AU-TEAM.IRPO
       args:
         stdin: "P@ssw0rd\n"
-      no_log: true
+      no_log: false
       changed_when: false
 
     - name: Join domain
