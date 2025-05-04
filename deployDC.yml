@@ -79,7 +79,7 @@
     - name: Provision Samba Domain
       command: samba-tool domain provision 
         --realm=au-team.irpo 
-        --domain=au-team.irpo 
+        --domain=au-team
         --adminpass='P@ssw0rd' 
         --dns-backend=BIND9_DLZ 
         --server-role=dc
@@ -88,12 +88,27 @@
 
     - name: Start and enable Samba
       service:
-        name: samba-ad-dc
+        name: samba
         state: started
         enabled: yes
 
     - name: Start and enable Bind9
       service:
-        name: bind9
+        name: bind
         state: started
         enabled: yes
+
+- name: Add samba-dc2 to DNS on domain
+  hosts: samba-dc1
+  become: yes
+  tasks:
+    - name: Add record
+      command: samba-tool dns add 127.0.0.1 au-team.irpo samba-dc2 A {% for host in groups['samba-dc2'] %}
+                {{ hostvars[host].ansible_default_ipv4.address }}
+               {% endfor %} -U administrator%P@ssw0rd 
+
+        #- name: Add samba-dc2 to domain
+        #hosts: samba-dc2
+        #become: yes
+        #tasks:
+        #- name: 
