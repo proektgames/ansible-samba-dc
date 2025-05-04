@@ -87,12 +87,13 @@
         creates: /etc/samba/smb.conf  # Защита от повторного выполнения
 
     - name: Disable DNS in samba config
-      ini_file:
+      lineinfile:
         path: /etc/samba/smb.conf
-        section: global
-        option: server services
-        value: '-dns'
-        mode: 0644
+        insertafter: '^\[global\]'
+        line: '    server services = -dns'
+        regexp: '^\s*server services\s*=\s*-dns'
+        state: present
+        backrefs: yes
 
     - name: Start and enable Samba
       service:
