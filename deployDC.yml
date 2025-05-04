@@ -3,18 +3,12 @@
   hosts: all
   become: yes
   tasks:
-    - name: Install task-samba-dc
-      apt:
-        name: task-samba-dc
-        update_cache: yes
-
-    - name: Install bind packages
-      apt:
-        name:
-          - bind
-          - bind-utils
-        state: present
-
+    - name: Update Cache
+      command: apt-get update
+      
+    - name: Install task-samba-dc bind bind-utils
+      command: apt-get install -y task-samba-dc bind bind-utils
+      
     - name: Stop and disable services
       service:
         name: "{{ item }}"
@@ -26,6 +20,7 @@
         - nmb
         - smb
         - slapd
+      ignore_errors: yes
 
     - name: Clean Samba configuration
       file:
@@ -39,8 +34,6 @@
 
     - name: Disable bind chroot
       command: control bind-chroot disabled
-      args:
-        warn: false
 
     - name: Configure KRB5RCACHETYPE
       lineinfile:
@@ -76,5 +69,5 @@
     - name: Update network parameters
       replace:
         path: /etc/bind/options.conf
-        regexp: '^(\\s*)(allow-query|allow-recursion|listen-on)(\\s+.*;)'
-        replace: '\1\2 { any; };'
+        regexp: '^(\s*)(//\s*)?(allow-query|allow-recursion|listen-on)(\s+.*;)'
+        replace: '\1\3 { any; };'
