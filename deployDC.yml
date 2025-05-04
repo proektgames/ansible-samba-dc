@@ -93,7 +93,6 @@
         block: |
           server services = -dns
         insertafter: '^\[global\]'
-        before: '^\[[^\]]+\]'
 
     - name: Start and enable Samba
       service:
