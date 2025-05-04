@@ -71,3 +71,29 @@
         path: /etc/bind/options.conf
         regexp: '^(\s*)(//\s*)?(allow-query|allow-recursion|listen-on)(\s+.*;)'
         replace: '\1\3 { any; };'
+
+- name: Promote samba-dc1 to PDC
+  hosts: samba-dc1
+  become: yes
+  tasks:
+    - name: Provision Samba Domain
+      command: samba-tool domain provision 
+        --realm=au-team.irpo 
+        --domain=au-team.irpo 
+        --adminpass='P@ssw0rd' 
+        --dns-backend=BIND9_DLZ 
+        --server-role=dc
+      args:
+        creates: /etc/samba/smb.conf  # Защита от повторного выполнения
+
+    - name: Start and enable Samba
+      service:
+        name: samba-ad-dc
+        state: started
+        enabled: yes
+
+    - name: Start and enable Bind9
+      service:
+        name: bind9
+        state: started
+        enabled: yes
