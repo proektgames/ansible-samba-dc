@@ -3,17 +3,22 @@
   hosts: all
   become: yes
   tasks:
+
+      # СЫРОЕ ВЫПОЛНЕНИЕ КОМАНДЫ
     - name: Update Cache
       command: apt-get update
       
     - name: Install task-samba-dc bind bind-utils
       command: apt-get install -y task-samba-dc bind bind-utils
-      
+
+
+      #ИзМЕНЕНИЕ СТАТУСА СЛУЖБЫ
     - name: Stop and disable services
       service:
         name: "{{ item }}"
         state: stopped
         enabled: no
+        # В ЦИКЛЕ ДЛЯ НЕСКОЛЬКИХ
       loop:
         - bind
         - krb5kdc
@@ -22,10 +27,13 @@
         - slapd
       ignore_errors: yes
 
+
+        # ИЗМЕНЕНИЕ СОСТОЯНИЕ ФАЙЛОВ
     - name: Clean Samba configuration
       file:
         path: "{{ item.path }}"
         state: "{{ item.state }}"
+        # ТАКЖЕ В ЦИКЛЕ ЛОЛ
       loop:
         - { path: '/etc/samba/smb.conf', state: 'absent' }
         - { path: '/var/lib/samba', state: 'absent' }
@@ -35,6 +43,7 @@
     - name: Disable bind chroot
       command: control bind-chroot disabled
 
+        # ИЗМЕНЕНИЕ КОНКРЕТНОЙ СТРОЧКИ В ФАЙЛЕ
     - name: Configure KRB5RCACHETYPE
       lineinfile:
         path: /etc/sysconfig/bind
@@ -49,6 +58,7 @@
         regexp: 'include ".*bind-dns/named.conf"'
         state: present
 
+        # ДОБАВЛЕНИЕ ОПРЕДЕЛЕННОГО БЛОКА ТЕКСТА В ФАЙЛ С ОПРЕДЕЛЕННЫМ ФИЛЬТРОМ
     - name: Configure options section
       blockinfile:
         path: /etc/bind/options.conf
@@ -65,13 +75,16 @@
         block: |
           category lame-servers {null;};
         insertafter: '^logging {'
-
+        
+        # ЛЮТАЯ РАСПАЛЬЦОВКА С РЕГУЛЬЛЯРЫМ ВАРЖАНИЕМ ДЛЯ ЗАМЕНЫ НЕСКОЛЬКИХ СТРОЧЕК
     - name: Update network parameters
       replace:
         path: /etc/bind/options.conf
         regexp: '^(\s*)(//\s*)?(allow-query|allow-recursion|listen-on)(\s+.*;)'
         replace: '\1\3 { any; };'
 
+
+        # ОТДЕЛЬНАЯ ГРУППА ЗАДАЧ ДЛЯ ОПРЕДЕЛЕННОГО ХОСТА
 - name: Promote samba-dc1 to PDC
   hosts: samba-dc1
   become: yes
@@ -111,6 +124,7 @@
   become: yes
   tasks:
     - name: Add record
+        # ТУТ КАРОЧЕ Я ТАК СЫРОЙ АЙПИШНИК ПОЛУЧАЙЮ ИЗ ХОСТОВ В ГРУППЕ АНСИБЛА
       command: samba-tool dns add 127.0.0.1 au-team.irpo samba-dc2 A {% for host in groups['samba-dc2'] %}
                 {{ hostvars[host].ansible_default_ipv4.address }}
                {% endfor %} -U administrator%P@ssw0rd 
@@ -120,6 +134,7 @@
   become: yes
   tasks:
     - name: Configure Kerberos settings
+          # СОЕДИНЕНИЕ НЕСКОЛЬКИХ ЗАДАЧ В ОДИН БЛОК ДЛЯ ОДНОГО ЗАДАНИЯ
       block:
         - name: Ensure [libdefaults] section exists
           lineinfile:
@@ -152,6 +167,8 @@
             insertafter: '^\[libdefaults\]'
             state: present
 
+
+          # СЫРОЙ ВВОД ДАННЫХ ДЛЯ КОММАНД КОТОРЫЕ ПОДДЕРЖИВАЮТ ТОЛЬКО stdin
     - name: Obtain Kerberos ticket
       command: kinit administrator@AU-TEAM.IRPO
       args:
